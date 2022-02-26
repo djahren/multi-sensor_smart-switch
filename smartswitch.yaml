@@ -1,0 +1,243 @@
+esphome:
+  name: office-temp #originally were just temp humidity sensors but grew from there
+  platform: ESP8266
+  board: nodemcuv2
+  on_boot:
+    - priority: 600
+      then:
+        - light.turn_on: 
+            id: office_motion_led
+            brightness: 50%
+            transition_length: 5s
+    - priority: 100
+      then:
+        - light.turn_off: office_motion_led
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  password: !secret api
+
+ota:
+  password: !secret api
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_pw
+  manual_ip:
+    static_ip: 192.168.1.121
+    gateway: !secret router_ip #only a secret so I can easily update all switches centrally at a later point
+    subnet: !secret subnet
+    
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Office-Temp Fallback Hotspot"
+    password: "[Redacted]"
+
+captive_portal:
+
+sensor:
+  - platform: dht
+    model: dht11
+    pin: D2
+    temperature:
+      name: "Office Temperature"
+      id: "office_temp"
+    humidity:
+      name: "Office Humidity"
+      id: "office_humidity"
+    update_interval: 5s
+  - platform: adc
+    pin: A0
+    name: "Office Lux"
+    update_interval: 5s
+    unit_of_measurement: lux
+    filters:
+      - lambda: |-
+          return x * 1000;
+          
+light:
+  - platform: monochromatic
+    name: "Office Motion LED"
+    output: output_component1
+    id: office_motion_led
+
+output:
+  - platform: esp8266_pwm
+    id: output_component1
+    pin: D6
+
+switch:
+  - platform: template
+    name: "Enable LED on Motion"
+    id: office_enable_led_on_motion
+    optimistic: true
+
+
+binary_sensor:
+  - platform: gpio
+    pin: D7
+    id: "office_motion"
+    name: "Office Motion"
+    device_class: motion
+    on_press:
+      if:
+        condition:
+          switch.is_on: office_enable_led_on_motion
+        then:
+          light.turn_on: office_motion_led
+    on_release:
+      if:
+        condition:
+          switch.is_on: office_enable_led_on_motion
+        then:
+          light.turn_off: office_motion_led
+    
+    
+  - platform: gpio
+    id: "office_button_1"
+    pin: 
+      number: D1
+      mode: INPUT_PULLUP
+      inverted: true
+    name: "Office Button 1"
+    filters:
+      - delayed_on: 10ms
+    on_multi_click:
+    - timing:
+        - ON for at most 1s
+        - OFF for at most 1s
+        - ON for at most 1s
+        - OFF for at least 0.5s
+      then:
+        - binary_sensor.template.publish:
+            id: office_1_double_pressed
+            state: ON
+        - delay: 1s
+        - binary_sensor.template.publish:
+            id: office_1_double_pressed
+            state: OFF
+    - timing:
+        - ON for at most 1s
+        - OFF for at most 1s
+        - ON for at most 1s
+        - OFF for at most 1s
+        - ON for at most 1s
+        - OFF for at least 0.2s
+      then:
+        - binary_sensor.template.publish:
+            id: office_1_triple_pressed
+            state: ON
+        - delay: 1s
+        - binary_sensor.template.publish:
+            id: office_1_triple_pressed
+            state: OFF
+    - timing:
+        - ON for at least 0.5s # to 2s
+      then:
+        - binary_sensor.template.publish:
+            id: office_1_long_pressed
+            state: ON
+        - wait_until:
+            binary_sensor.is_off: office_button_1
+        - binary_sensor.template.publish:
+            id: office_1_long_pressed
+            state: OFF
+    - timing:
+        - ON for at most 0.25s
+        - OFF for at least 0.5s
+      then:
+        - binary_sensor.template.publish:
+            id: office_1_single_pressed
+            state: ON
+        - delay: 1s
+        - binary_sensor.template.publish:
+            id: office_1_single_pressed
+            state: OFF
+  - platform: template
+    name: Office 1 Single Pressed
+    id: office_1_single_pressed
+  - platform: template
+    name: Office 1 Double Pressed
+    id: office_1_double_pressed
+  - platform: template
+    name: Office 1 Triple Pressed
+    id: office_1_triple_pressed
+  - platform: template
+    name: Office 1 Long Pressed
+    id: office_1_long_pressed
+            
+  - platform: gpio
+    id: "office_button_2"
+    pin: 
+      number: D5
+      mode: INPUT_PULLUP
+      inverted: true
+    name: "Office Button 2"
+    filters:
+      - delayed_on: 10ms
+    on_multi_click:
+    - timing:
+        - ON for at most 1s
+        - OFF for at most 1s
+        - ON for at most 1s
+        - OFF for at least 0.5s
+      then:
+        - binary_sensor.template.publish:
+            id: office_2_double_pressed
+            state: ON
+        - delay: 1s
+        - binary_sensor.template.publish:
+            id: office_2_double_pressed
+            state: OFF
+    - timing:
+        - ON for at most 1s
+        - OFF for at most 1s
+        - ON for at most 1s
+        - OFF for at most 1s
+        - ON for at most 1s
+        - OFF for at least 0.2s
+      then:
+        - binary_sensor.template.publish:
+            id: office_2_triple_pressed
+            state: ON
+        - delay: 1s
+        - binary_sensor.template.publish:
+            id: office_2_triple_pressed
+            state: OFF
+    - timing:
+        - ON for at least 0.5s # to 2s
+      then:
+        - binary_sensor.template.publish:
+            id: office_2_long_pressed
+            state: ON
+        - wait_until:
+            binary_sensor.is_off: office_button_2
+        - binary_sensor.template.publish:
+            id: office_2_long_pressed
+            state: OFF
+    - timing:
+        - ON for at most 0.25s
+        - OFF for at least 0.5s
+      then:
+        - binary_sensor.template.publish:
+            id: office_2_single_pressed
+            state: ON
+        - delay: 1s
+        - binary_sensor.template.publish:
+            id: office_2_single_pressed
+            state: OFF
+  - platform: template
+    name: Office 2 Single Pressed
+    id: office_2_single_pressed
+  - platform: template
+    name: Office 2 Double Pressed
+    id: office_2_double_pressed
+  - platform: template
+    name: Office 2 Triple Pressed
+    id: office_2_triple_pressed
+  - platform: template
+    name: Office 2 Long Pressed
+    id: office_2_long_pressed
